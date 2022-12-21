@@ -1,0 +1,8 @@
+
+*.pyc
+*.pyc
+__pycache__/
+.vscode/
+SolCapacity/venv/
+SolCapacity/vision/
+SolCapacity/Solar_pictures/
