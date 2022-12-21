@@ -1,0 +1,11 @@
+
+*.pyc
+*.pyc
+__pycache__/
+.vscode/
+venv/
+vision/
+<<<<<<< HEAD
+=======
+Solar_pictures/
+>>>>>>> tmp
