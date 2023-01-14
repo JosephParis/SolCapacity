@@ -40,6 +40,159 @@ class CONST:
     gamma=0.1
     print_freq = 10
 
+class Utils:
+    @staticmethod
+    def blockshaped(arr, nrows, ncols):
+        h, w = arr.shape
+        return (arr.reshape(h // nrows, nrows, -1, ncols)
+                .swapaxes(1, 2)
+                .reshape(-1, nrows, ncols))
+
+    @staticmethod
+    def fen_from_filename(filename):
+        filename_prefix = os.path.splitext(os.path.basename(filename))[0]
+        return filename_prefix.split()[0]
+
+    @staticmethod
+    def get_all_labels(list_filename):
+        labels = []
+        for i in range(len(list_filename)):
+            labels.append(Utils.fen_from_filename(list_filename[i]))
+        return labels
+
+    @staticmethod
+    def img_processing(img):
+        img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+        img_shrink = cv2.resize(img_gray, (200, 200))
+        box_list = Utils.blockshaped(img_shrink, CONST.img_dim, CONST.img_dim)
+        flatten_list = box_list.reshape(box_list.shape[0], -1)
+        return flatten_list
+
+    @staticmethod
+    def fen_to_piece_label(fen):
+        label_array = []
+        for i in fen:
+            if str.isdigit(i):
+                label_array += numpy.zeros(int(i), numpy.int16).tolist()
+            elif i in CONST.PIECES:
+                label_array.append(CONST.PIECES.index(i) + 1)
+        return label_array
+
+
+    @staticmethod
+    def playing_black(fen):
+        '''
+        returns
+        b, if playing black
+        w, if paying white
+        None, if unknown
+        '''
+        balance = 0  # when balance < 0 assume from black perspective
+        n = 1
+        total = 0
+
+        fen_array = fen.split("-")
+        for row in range(0,8):
+            if row > 3:
+                n = -1
+            for i in fen_array[row]:
+                if i.islower():
+                    total += 1
+                    balance += n
+                elif i.isupper():
+                    balance -= n
+                    total += 1
+        if total > 10:
+            if balance < -2:
+                return "b"
+            elif balance > 2:
+                return "w"
+        return None
+
+    @staticmethod
+    def lb_to_fen(label):
+        s = ''
+        count = 0
+        for i in range(len(label)):
+            if i % 8 == 0:
+                if count != 0:
+                    s = s + str(count)
+                    count = 0
+                s = s + '-'
+            if label[i] == 0:
+                count = count + 1
+            else:
+                if count != 0:
+                    s = s + str(count)
+                    count = 0
+
+                if 0 < label[i] <= CONST.PIECES_LEN:
+                    s = s + CONST.PIECES[label[i] - 1]
+                else:
+                    print('Invalid Error#######################################')
+        if count != 0:
+            s = s + str(count)
+        return s[1:]
+
+    @staticmethod
+    def lbs_to_fen(label):
+        fen = []
+        for grp_no in range(0, int(len(label) / 64)):
+            start_index = grp_no * 64
+            fen.append(Utils.lb_to_fen(label[start_index: start_index + 64]))
+        return fen
+
+    @staticmethod
+    def decoded_board_with_label(board):
+        x = []
+        y = []
+        x.extend(Utils.img_processing(cv2.imread(board)))
+        y.extend(Utils.fen_to_piece_label(Utils.fen_from_filename(board)))
+        return x, y
+
+    @staticmethod
+    def get_batch(dataset, b_size, start_index):
+        x = []
+        y = []
+        for j in range(0, b_size):
+            if start_index + j == len(dataset):
+                break
+            temp_x, temp_y = Utils.decoded_board_with_label(dataset[start_index + j])
+            x.extend(temp_x)
+            y.extend(temp_y)
+        x = torch.FloatTensor(x)
+        y = torch.FloatTensor(y)
+        return x, y
+
+    @staticmethod
+    def pred_single_img(model_path, image_path):
+        my_model = torch.jit.load(model_path)
+        my_model.to(CONST.device)  # make sure on device
+        my_model.eval()
+
+        img_unprocessed = cv2.imread(image_path)
+        my_image = Utils.img_processing(img_unprocessed)
+
+        img_array = []
+        img_array.extend(my_image)
+        my_pred_label = my_model(torch.FloatTensor(img_array))
+        my_pred_label = \
+            my_pred_label.view(len(my_pred_label), -1).argmax(1).to(CONST.device).numpy().astype(numpy.int32).tolist()
+
+
+        return Utils.lb_to_fen(my_pred_label)
+
+    @staticmethod
+    def pick_old_model(model_path = None):
+        if model_path is None:
+            print("pick a model")
+            model_path = filedialog.askopenfilename(initialdir="models/")
+
+        old_model = torch.jit.load(model_path)
+        print(model_path, "model loaded")
+        old_model.eval()
+        return old_model
+
 
 class SolarDataset(torch.utils.data.Dataset):
     def __init__(self, root, transforms, train):
