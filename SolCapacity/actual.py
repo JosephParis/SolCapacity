@@ -1,11 +1,8 @@
 import os
+from datetime import datetime
+from tkinter import filedialog
 
 import numpy as np
-<<<<<<< HEAD
-import torch
-import torchvision
-import torchvision.transforms as det_T
-=======
 import Sortingfolders as sf
 import torch
 import torchvision
@@ -13,32 +10,22 @@ import torchvision.transforms as det_T
 import transforms as T
 import utils
 from engine import evaluate, train_one_epoch
->>>>>>> tmp
-#import torchvision.transforms as T
 from PIL import Image
 from torchvision.models.detection.faster_rcnn import FastRCNNPredictor
 from torchvision.models.detection.mask_rcnn import MaskRCNNPredictor
 
-<<<<<<< HEAD
-import Sortingfolders as sf
-import transforms as T
-import utils
-from engine import evaluate, train_one_epoch
-
-=======
->>>>>>> tmp
-#from transforms import transforms as T
-
 
 class CONST:
-    batch_size = 10
-    epochs = 5
+    batch_size = 20
+    epochs = 10
     lr=0.005
     momentum=0.9
     weight_decay=0.0005
     step_size=3
     gamma=0.1
-    print_freq = 10
+    print_freq = 100
+    model_file_path = "C:/Users/joeyk/Documents/mycode/solcapacity/SolCapacity/models/" 
+    #SolCapacity\models
 
 class Utils:
     @staticmethod
@@ -49,120 +36,12 @@ class Utils:
                 .reshape(-1, nrows, ncols))
 
     @staticmethod
-    def fen_from_filename(filename):
-        filename_prefix = os.path.splitext(os.path.basename(filename))[0]
-        return filename_prefix.split()[0]
-
-    @staticmethod
-    def get_all_labels(list_filename):
-        labels = []
-        for i in range(len(list_filename)):
-            labels.append(Utils.fen_from_filename(list_filename[i]))
-        return labels
-
-    @staticmethod
     def img_processing(img):
         img_gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         img_shrink = cv2.resize(img_gray, (200, 200))
         box_list = Utils.blockshaped(img_shrink, CONST.img_dim, CONST.img_dim)
         flatten_list = box_list.reshape(box_list.shape[0], -1)
         return flatten_list
-
-    @staticmethod
-    def fen_to_piece_label(fen):
-        label_array = []
-        for i in fen:
-            if str.isdigit(i):
-                label_array += numpy.zeros(int(i), numpy.int16).tolist()
-            elif i in CONST.PIECES:
-                label_array.append(CONST.PIECES.index(i) + 1)
-        return label_array
-
-
-    @staticmethod
-    def playing_black(fen):
-        '''
-        returns
-        b, if playing black
-        w, if paying white
-        None, if unknown
-        '''
-        balance = 0  # when balance < 0 assume from black perspective
-        n = 1
-        total = 0
-
-        fen_array = fen.split("-")
-        for row in range(0,8):
-            if row > 3:
-                n = -1
-            for i in fen_array[row]:
-                if i.islower():
-                    total += 1
-                    balance += n
-                elif i.isupper():
-                    balance -= n
-                    total += 1
-        if total > 10:
-            if balance < -2:
-                return "b"
-            elif balance > 2:
-                return "w"
-        return None
-
-    @staticmethod
-    def lb_to_fen(label):
-        s = ''
-        count = 0
-        for i in range(len(label)):
-            if i % 8 == 0:
-                if count != 0:
-                    s = s + str(count)
-                    count = 0
-                s = s + '-'
-            if label[i] == 0:
-                count = count + 1
-            else:
-                if count != 0:
-                    s = s + str(count)
-                    count = 0
-
-                if 0 < label[i] <= CONST.PIECES_LEN:
-                    s = s + CONST.PIECES[label[i] - 1]
-                else:
-                    print('Invalid Error#######################################')
-        if count != 0:
-            s = s + str(count)
-        return s[1:]
-
-    @staticmethod
-    def lbs_to_fen(label):
-        fen = []
-        for grp_no in range(0, int(len(label) / 64)):
-            start_index = grp_no * 64
-            fen.append(Utils.lb_to_fen(label[start_index: start_index + 64]))
-        return fen
-
-    @staticmethod
-    def decoded_board_with_label(board):
-        x = []
-        y = []
-        x.extend(Utils.img_processing(cv2.imread(board)))
-        y.extend(Utils.fen_to_piece_label(Utils.fen_from_filename(board)))
-        return x, y
-
-    @staticmethod
-    def get_batch(dataset, b_size, start_index):
-        x = []
-        y = []
-        for j in range(0, b_size):
-            if start_index + j == len(dataset):
-                break
-            temp_x, temp_y = Utils.decoded_board_with_label(dataset[start_index + j])
-            x.extend(temp_x)
-            y.extend(temp_y)
-        x = torch.FloatTensor(x)
-        y = torch.FloatTensor(y)
-        return x, y
 
     @staticmethod
     def pred_single_img(model_path, image_path):
@@ -188,10 +67,25 @@ class Utils:
             print("pick a model")
             model_path = filedialog.askopenfilename(initialdir="models/")
 
-        old_model = torch.jit.load(model_path)
+        #old_model = torch.load(model_path)
+        old_model = get_model_instance_segmentation(2) # a torch.nn.Module object
+        old_model.load_state_dict(torch.load(model_path))
+        #old_model = old_model.to(device)
         print(model_path, "model loaded")
-        old_model.eval()
+        #evaluate(old_model, )
         return old_model
+
+    @staticmethod
+    def save_model(model, filepath=""):
+        now = datetime.now()
+        filepath = CONST.model_file_path + now.strftime("%S_%M_%H_%d_%m") + "model.pt"
+        torch.save(model.state_dict(), filepath)
+        print(f'Model saved to {filepath}')
+    
+    @staticmethod
+    def load_model(model, filepath):
+        model.load_state_dict(torch.load(filepath))
+        print(f'Model loaded from {filepath}')
 
 
 class SolarDataset(torch.utils.data.Dataset):
@@ -207,8 +101,6 @@ class SolarDataset(torch.utils.data.Dataset):
         self.imgs = list(sorted(sf.ign_matches))
         self.masks = list(sorted(sf.ign_matches))
         
-<<<<<<< HEAD
-=======
         splits = 10
         self.imgs_splits = np.array_split(self.imgs, splits)
         self.masks_splits = np.array_split(self.masks, splits)
@@ -216,11 +108,8 @@ class SolarDataset(torch.utils.data.Dataset):
         self.imgs = list(self.imgs_splits[0])
         self.masks = list(self.masks_splits[0]) 
         print('data loaded', len(self.imgs))
-        
->>>>>>> tmp
     def __getitem__(self, idx):
         # load images and masks
-        # error is here with idx
         #img_path = os.path.join(self.root, "bdappv/bdappv/ign/img", self.imgs[idx])
         img_path = self.imgs[idx]
         #mask_path = os.path.join(self.root, "bdappv/bdappv/ign/mask", self.masks[idx])
@@ -283,6 +172,8 @@ class SolarDataset(torch.utils.data.Dataset):
     def __len__(self):
         return len(self.imgs)
 
+    
+
 def get_model_instance_segmentation(num_classes):
     # load an instance segmentation model pre-trained on COCO
     model = torchvision.models.detection.maskrcnn_resnet50_fpn(weights="DEFAULT")
@@ -312,20 +203,32 @@ def get_transform():
      #   transforms.append(T.RandomHorizontalFlip(0.5))
     return T.Compose(transforms)
 
+def menu():
+    print("1: evaluate old model")
+    print("2: new model")
+    print("3: load model stats")
+    val = int(input("Enter your value: "))
+    print("menu choice:" + str(val))
+    #if val==1:
+        #model = Utils.pick_old_model()
+    if val != 1:
+        val = 2
+        print("menu choice changed to " + str(val))
+    return val
+        
 def main():
-<<<<<<< HEAD
-    # train on the GPU or on the CPU, if a GPU is not available
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-=======
     print("code starting")
+    #torch.cuda.empty_cache() didn't work
+    #print("CACHE CLEARED")
+    print("file:" + CONST.model_file_path)
     # train on the GPU or on the CPU, if a GPU is not available
     if torch.cuda.is_available():
         device = torch.device('cuda')
     else:
+        print(torch.cuda.get_device_name())
         device = torch.device('cpu')
     print('device:', str(device))
     #device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
->>>>>>> tmp
 
     # our dataset has two classes only - background and person
     num_classes = 2
@@ -346,32 +249,42 @@ def main():
     data_loader_test = torch.utils.data.DataLoader(
         dataset_test, batch_size=1, shuffle=False, num_workers=4,
         collate_fn=utils.collate_fn)
+    
+    menu_choice = menu()
+    if menu_choice == 1:
+        #model = get_model_instance_segmentation(num_classes)
+        model = Utils.pick_old_model()
+        model.to(device)
+    else:
+        # get the model using our helper function
+        model = get_model_instance_segmentation(num_classes)
+        #Utils.save_model(model, CONST.model_file_path)
 
-    # get the model using our helper function
-    model = get_model_instance_segmentation(num_classes)
+        # move model to the right device
+        model.to(device)
 
-    # move model to the right device
-    model.to(device)
-
-    # construct an optimizer
-    params = [p for p in model.parameters() if p.requires_grad]
-    optimizer = torch.optim.SGD(params, lr=CONST.lr,
-                                momentum=CONST.momentum, weight_decay=CONST.weight_decay)
-    # and a learning rate scheduler
-    lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
-                                                   step_size=CONST.step_size,
-                                                   gamma=CONST.gamma)
+        # construct an optimizer
+        params = [p for p in model.parameters() if p.requires_grad]
+        optimizer = torch.optim.SGD(params, lr=CONST.lr,
+                                    momentum=CONST.momentum, weight_decay=CONST.weight_decay)
+        # and a learning rate scheduler
+        lr_scheduler = torch.optim.lr_scheduler.StepLR(optimizer,
+                                                    step_size=CONST.step_size,
+                                                    gamma=CONST.gamma)
 
     # let's train it for 10 epochs
-    num_epochs = 10
+    num_epochs = CONST.epochs
 
     for epoch in range(num_epochs):
-        # train for one epoch, printing every 10 iterations
-        train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq=10)
-        # update the learning rate
-        lr_scheduler.step()
+        #printing every 10 iterations
+        if menu_choice != 1:
+            train_one_epoch(model, optimizer, data_loader, device, epoch, print_freq=CONST.print_freq)
+            # update the learning rate
+            lr_scheduler.step()
         # evaluate on the test dataset
         evaluate(model, data_loader_test, device=device)
+    if menu_choice !=1 :
+        Utils.save_model(model, CONST.model_file_path)
 
     print("That's it!")
 

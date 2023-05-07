@@ -4,15 +4,12 @@ from os.path import isdir, isfile, join
 
 # ign masks =7685, images =17325, total =25010
 # google masks =28807, images =13303, total =42110
-base_path = "Solar_pictures/bdappv/bdappv/ign"
+base_path = "SolCapacity/Solar_pictures/bdappv/bdappv/ign"
+#base_path = r"Solar_pictures\bdappv\bdappv\ign"
 #google_image_path = '../Solar_pictures/bdappv/bdappv/google/img'
 ign_image_path = base_path + '/img'
 #google_mask_path = '../Solar_pictures/bdappv/bdappv/google/mask'
-<<<<<<< HEAD
 ign_mask_path= base_path + '/mask'
-=======
-ign_mask_path = base_path + '/mask'
->>>>>>> tmp
 #base_path = "../Solar_pictures/bdappv/bdappv/ign"
 files = listdir(base_path)
 only_directories = [path for path in files if isdir(join(base_path,path))]
